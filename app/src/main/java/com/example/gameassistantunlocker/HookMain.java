@@ -16,41 +16,30 @@ public class HookMain implements IXposedHookLoadPackage {
             return;
         }
 
-        XposedBridge.log("ColorOS Voice Unlocker: Hooking VoiceContentDataHelper directly");
+        XposedBridge.log("ColorOS Voice Unlocker: Hooking VIP Checkers & NetPanel");
 
+        // Hook truc tiep lop VipOfflineModel va VoiceContentDataHelper
         try {
-            Class<?> helperClass = XposedHelpers.findClass(
-                "business.module.magicalvoice.voice.VoiceContentDataHelper", 
+            Class<?> vipModelClass = XposedHelpers.findClassIfExists(
+                "business.module.netpanel.ui.vm.VipOfflineModel", 
                 lpparam.classLoader
             );
 
-            // Hook tat ca cac method trong VoiceContentDataHelper tra ve boolean -> Ep tra ve true
-            for (Method method : helperClass.getDeclaredMethods()) {
-                if (method.getReturnType() == boolean.class) {
-                    XposedBridge.log("Hooking boolean method: " + method.getName());
-                    XposedHelpers.findAndHookMethod(
-                        helperClass, 
-                        method.getName(), 
-                        method.getParameterTypes(), 
-                        XC_MethodReplacement.returnConstant(true)
-                    );
-                }
-            }
-
-            // Forced trigger cho ham r(Z)V hoac o()V neu can
-            XposedHelpers.findAndHookMethod(
-                helperClass, 
-                "o", 
-                new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        XposedBridge.log("VoiceContentDataHelper.o() called!");
+            if (vipModelClass != null) {
+                for (Method method : vipModelClass.getDeclaredMethods()) {
+                    if (method.getReturnType() == boolean.class) {
+                        XposedBridge.log("Hooking VipOfflineModel method: " + method.getName());
+                        XposedHelpers.findAndHookMethod(
+                            vipModelClass, 
+                            method.getName(), 
+                            method.getParameterTypes(), 
+                            XC_MethodReplacement.returnConstant(true)
+                        );
                     }
                 }
-            );
-
+            }
         } catch (Throwable t) {
-            XposedBridge.log("Failed to hook VoiceContentDataHelper: " + t.getMessage());
+            XposedBridge.log("Error hooking VipOfflineModel: " + t.getMessage());
         }
     }
 }
