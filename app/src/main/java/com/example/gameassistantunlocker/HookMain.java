@@ -1,5 +1,7 @@
 package com.example.gameassistantunlocker;
 
+import java.util.List;
+import android.app.ActivityManager;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -17,50 +19,76 @@ public class HookMain implements IXposedHookLoadPackage {
             return;
         }
 
-        XposedBridge.log("ColorOS Voice Unlocker: Hooking com.oplus.games");
+        XposedBridge.log("ColorOS Voice Unlocker: Hooking com.oplus.games deep APIs");
 
-        // 1. Hook getPackageInfo (Chuỗi tham số Package Name)
+        // 1. Hook PackageManager getPackageInfo & getApplicationInfo
+        hookPackageManager(lpparam.classLoader);
+
+        // 2. Hook ActivityManager getRunningAppProcesses (Đánh tráo tên tiến trình đang chạy)
+        hookActivityManager(lpparam.classLoader);
+    }
+
+    private void hookPackageManager(ClassLoader classLoader) {
         try {
             XposedHelpers.findAndHookMethod(
-                "android.app.ApplicationPackageManager",
-                lpparam.classLoader,
-                "getPackageInfo",
-                String.class,
-                int.class,
+                "android.app.ApplicationPackageManager", classLoader,
+                "getPackageInfo", String.class, int.class,
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        String pkgName = (String) param.args[0];
-                        if (TARGET_PKG.equals(pkgName)) {
+                        if (TARGET_PKG.equals(param.args[0])) {
+                            param.args[0] = SPOOF_PKG;
+                        }
+                    }
+                }
+            );
+
+            XposedHelpers.findAndHookMethod(
+                "android.app.ApplicationPackageManager", classLoader,
+                "getApplicationInfo", String.class, int.class,
+                new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        if (TARGET_PKG.equals(param.args[0])) {
                             param.args[0] = SPOOF_PKG;
                         }
                     }
                 }
             );
         } catch (Throwable t) {
-            XposedBridge.log("Error hooking getPackageInfo: " + t.getMessage());
+            XposedBridge.log("PM Hook Error: " + t.getMessage());
         }
+    }
 
-        // 2. Hook getApplicationInfo
+    private void hookActivityManager(ClassLoader classLoader) {
         try {
             XposedHelpers.findAndHookMethod(
-                "android.app.ApplicationPackageManager",
-                lpparam.classLoader,
-                "getApplicationInfo",
-                String.class,
-                int.class,
+                "android.app.ActivityManager", classLoader,
+                "getRunningAppProcesses",
                 new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        String pkgName = (String) param.args[0];
-                        if (TARGET_PKG.equals(pkgName)) {
-                            param.args[0] = SPOOF_PKG;
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        List<ActivityManager.RunningAppProcessInfo> processes = 
+                            (List<ActivityManager.RunningAppProcessInfo>) param.getResult();
+                        if (processes != null) {
+                            for (ActivityManager.RunningAppProcessInfo info : processes) {
+                                if (TARGET_PKG.equals(info.processName)) {
+                                    info.processName = SPOOF_PKG;
+                                }
+                                if (info.pkgList != null) {
+                                    for (int i = 0; i < info.pkgList.length; i++) {
+                                        if (TARGET_PKG.equals(info.pkgList[i])) {
+                                            info.pkgList[i] = SPOOF_PKG;
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             );
         } catch (Throwable t) {
-            XposedBridge.log("Error hooking getApplicationInfo: " + t.getMessage());
+            XposedBridge.log("AM Hook Error: " + t.getMessage());
         }
     }
 }
