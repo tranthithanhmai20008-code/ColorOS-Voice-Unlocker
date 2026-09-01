@@ -8,6 +8,9 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 
 public class HookMain implements IXposedHookLoadPackage {
 
+    private static final String TARGET_PKG = "com.vng.pubgmobile";
+    private static final String SPOOF_PKG = "com.tencent.tmgp.pubgmhd";
+
     @Override
     public void handleLoadPackage(final LoadPackageParam lpparam) throws Throwable {
         if (!lpparam.packageName.equals("com.oplus.games")) {
@@ -16,6 +19,7 @@ public class HookMain implements IXposedHookLoadPackage {
 
         XposedBridge.log("ColorOS Voice Unlocker: Hooking com.oplus.games");
 
+        // 1. Hook getPackageInfo (Chuỗi tham số Package Name)
         try {
             XposedHelpers.findAndHookMethod(
                 "android.app.ApplicationPackageManager",
@@ -27,14 +31,36 @@ public class HookMain implements IXposedHookLoadPackage {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                         String pkgName = (String) param.args[0];
-                        if ("com.vng.pubgmobile".equals(pkgName)) {
-                            param.args[0] = "com.tencent.tmgp.pubgmhd";
+                        if (TARGET_PKG.equals(pkgName)) {
+                            param.args[0] = SPOOF_PKG;
                         }
                     }
                 }
             );
         } catch (Throwable t) {
-            XposedBridge.log("ColorOS Voice Unlocker Error: " + t.getMessage());
+            XposedBridge.log("Error hooking getPackageInfo: " + t.getMessage());
+        }
+
+        // 2. Hook getApplicationInfo
+        try {
+            XposedHelpers.findAndHookMethod(
+                "android.app.ApplicationPackageManager",
+                lpparam.classLoader,
+                "getApplicationInfo",
+                String.class,
+                int.class,
+                new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        String pkgName = (String) param.args[0];
+                        if (TARGET_PKG.equals(pkgName)) {
+                            param.args[0] = SPOOF_PKG;
+                        }
+                    }
+                }
+            );
+        } catch (Throwable t) {
+            XposedBridge.log("Error hooking getApplicationInfo: " + t.getMessage());
         }
     }
 }
