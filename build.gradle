@@ -3,9 +3,7 @@ plugins {
 }
 
 android {
-    // Khai báo namespace bắt buộc cho AGP 8.0+
     namespace 'com.example.gameassistantunlocker'
-
     compileSdk 34
 
     defaultConfig {
